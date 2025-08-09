@@ -5,6 +5,7 @@
 (define-constant err-invalid-id (err u101))
 (define-constant err-already-exists (err u102))
 (define-constant err-guardian-required (err u103))
+(define-constant err-identity-expired (err u104))
 
 (define-data-var last-id uint u0)
 (define-map validators principal bool)
@@ -14,6 +15,7 @@
      bio-hash: (string-ascii 64),
      status: (string-ascii 20),
      created-at: uint,
+     expires-at: uint,
      issuer: principal})
 
 (define-map guardian-details
@@ -33,6 +35,11 @@
 (define-read-only (get-guardian (id uint))
     (map-get? guardian-details id))
 
+(define-read-only (is-identity-valid (id uint))
+    (match (map-get? identity-details id)
+        some-details (>= (get expires-at some-details) burn-block-height)
+        false))
+
 (define-public (register-validator (validator-address principal))
     (begin
         (asserts! (is-eq tx-sender contract-owner) err-not-authorized)
@@ -47,6 +54,7 @@
     (name (string-ascii 50))
     (bio-hash (string-ascii 64))
     (status (string-ascii 20))
+    (validity-period uint)
     (is-minor bool))
     (let ((new-id (+ (var-get last-id) u1)))
         (asserts! (is-validator tx-sender) err-not-authorized)
@@ -56,6 +64,7 @@
              bio-hash: bio-hash,
              status: status,
              created-at: burn-block-height,
+             expires-at: (+ burn-block-height validity-period),
              issuer: tx-sender})
         (var-set last-id new-id)
         (ok new-id)))
@@ -81,6 +90,22 @@
                  bio-hash: (get bio-hash details),
                  status: new-status,
                  created-at: (get created-at details),
+                 expires-at: (get expires-at details),
+                 issuer: (get issuer details)})))))
+
+(define-public (renew-identity
+    (id uint)
+    (new-validity-period uint))
+    (let ((identity (nft-get-owner? refugee-id id)))
+        (asserts! (is-validator tx-sender) err-not-authorized)
+        (asserts! (is-some identity) err-invalid-id)
+        (let ((details (unwrap! (map-get? identity-details id) err-invalid-id)))
+            (ok (map-set identity-details id
+                {name: (get name details),
+                 bio-hash: (get bio-hash details),
+                 status: (get status details),
+                 created-at: (get created-at details),
+                 expires-at: (+ burn-block-height new-validity-period),
                  issuer: (get issuer details)})))))
 
 (define-public (transfer-identity
