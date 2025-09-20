@@ -6,6 +6,7 @@
 (define-constant err-already-exists (err u102))
 (define-constant err-guardian-required (err u103))
 (define-constant err-identity-expired (err u104))
+(define-constant err-identity-revoked (err u105))
 
 (define-data-var last-id uint u0)
 (define-map validators principal bool)
@@ -19,9 +20,11 @@
      issuer: principal})
 
 (define-map guardian-details
-    uint
-    {guardian: principal,
-     minor: bool})
+     uint
+     {guardian: principal,
+      minor: bool})
+
+(define-map revoked-identities uint bool)
 
 (define-read-only (get-last-id)
     (var-get last-id))
@@ -33,12 +36,15 @@
     (map-get? identity-details id))
 
 (define-read-only (get-guardian (id uint))
-    (map-get? guardian-details id))
+     (map-get? guardian-details id))
+
+(define-read-only (is-identity-revoked (id uint))
+     (default-to false (map-get? revoked-identities id)))
 
 (define-read-only (is-identity-valid (id uint))
-    (match (map-get? identity-details id)
-        some-details (>= (get expires-at some-details) burn-block-height)
-        false))
+     (match (map-get? identity-details id)
+         some-details (and (>= (get expires-at some-details) burn-block-height) (is-none (map-get? revoked-identities id)))
+         false))
 
 (define-public (register-validator (validator-address principal))
     (begin
@@ -94,19 +100,25 @@
                  issuer: (get issuer details)})))))
 
 (define-public (renew-identity
-    (id uint)
-    (new-validity-period uint))
-    (let ((identity (nft-get-owner? refugee-id id)))
-        (asserts! (is-validator tx-sender) err-not-authorized)
-        (asserts! (is-some identity) err-invalid-id)
-        (let ((details (unwrap! (map-get? identity-details id) err-invalid-id)))
-            (ok (map-set identity-details id
-                {name: (get name details),
-                 bio-hash: (get bio-hash details),
-                 status: (get status details),
-                 created-at: (get created-at details),
-                 expires-at: (+ burn-block-height new-validity-period),
-                 issuer: (get issuer details)})))))
+     (id uint)
+     (new-validity-period uint))
+     (let ((identity (nft-get-owner? refugee-id id)))
+         (asserts! (is-validator tx-sender) err-not-authorized)
+         (asserts! (is-some identity) err-invalid-id)
+         (let ((details (unwrap! (map-get? identity-details id) err-invalid-id)))
+             (ok (map-set identity-details id
+                 {name: (get name details),
+                  bio-hash: (get bio-hash details),
+                  status: (get status details),
+                  created-at: (get created-at details),
+                  expires-at: (+ burn-block-height new-validity-period),
+                  issuer: (get issuer details)})))))
+
+(define-public (revoke-identity (id uint))
+     (begin
+         (asserts! (is-validator tx-sender) err-not-authorized)
+         (asserts! (is-some (map-get? identity-details id)) err-invalid-id)
+         (ok (map-set revoked-identities id true))))
 
 (define-public (transfer-identity
     (id uint)
