@@ -7,6 +7,7 @@
 (define-constant err-guardian-required (err u103))
 (define-constant err-identity-expired (err u104))
 (define-constant err-identity-revoked (err u105))
+(define-constant err-already-endorsed (err u106))
 
 (define-data-var last-id uint u0)
 (define-map validators principal bool)
@@ -25,6 +26,7 @@
       minor: bool})
 
 (define-map revoked-identities uint bool)
+(define-map endorsements {endorser: principal, identity-id: uint} bool)
 
 (define-read-only (get-last-id)
     (var-get last-id))
@@ -42,9 +44,12 @@
      (default-to false (map-get? revoked-identities id)))
 
 (define-read-only (is-identity-valid (id uint))
-     (match (map-get? identity-details id)
-         some-details (and (>= (get expires-at some-details) burn-block-height) (is-none (map-get? revoked-identities id)))
-         false))
+      (match (map-get? identity-details id)
+          some-details (and (>= (get expires-at some-details) burn-block-height) (is-none (map-get? revoked-identities id)))
+          false))
+
+(define-read-only (is-endorsed (endorser principal) (identity-id uint))
+      (default-to false (map-get? endorsements {endorser: endorser, identity-id: identity-id})))
 
 (define-public (register-validator (validator-address principal))
     (begin
@@ -121,10 +126,16 @@
          (ok (map-set revoked-identities id true))))
 
 (define-public (transfer-identity
-    (id uint)
-    (recipient principal))
-    (let ((guardian (map-get? guardian-details id)))
-        (if (is-some guardian)
-            (asserts! (is-eq tx-sender (get guardian (unwrap-panic guardian))) err-not-authorized)
-            (asserts! (is-eq (some tx-sender) (nft-get-owner? refugee-id id)) err-not-authorized))
-        (nft-transfer? refugee-id id tx-sender recipient)))
+     (id uint)
+     (recipient principal))
+     (let ((guardian (map-get? guardian-details id)))
+         (if (is-some guardian)
+             (asserts! (is-eq tx-sender (get guardian (unwrap-panic guardian))) err-not-authorized)
+             (asserts! (is-eq (some tx-sender) (nft-get-owner? refugee-id id)) err-not-authorized))
+         (nft-transfer? refugee-id id tx-sender recipient)))
+
+(define-public (endorse-identity (identity-id uint))
+     (let ((identity (nft-get-owner? refugee-id identity-id)))
+         (asserts! (is-some identity) err-invalid-id)
+         (asserts! (not (is-endorsed tx-sender identity-id)) err-already-endorsed)
+         (ok (map-set endorsements {endorser: tx-sender, identity-id: identity-id} true))))

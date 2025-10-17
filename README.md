@@ -78,4 +78,20 @@ Key Features:
 - Secure transfer mechanisms
 
 The implementation focuses on core functionality while maintaining security and simplicity. 
+## 🏆 Endorsement System
+
+- 🌟 Identity endorsement mechanism for community validation
+- 🔍 Query endorsement status for any identity
+- ✅ One-time endorsement per endorser per identity
+
+### For Endorsers
+
+Endorse an identity to validate its authenticity:
+```clarity
+(contract-call? .refugee-id endorse-identity <identity-id>)
+```
+
+### Query Functions
+
+- `is-endorsed`: Check if a specific principal has endorsed an identity
 
