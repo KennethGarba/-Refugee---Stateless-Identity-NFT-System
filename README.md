@@ -95,3 +95,21 @@ Endorse an identity to validate its authenticity:
 
 - `is-endorsed`: Check if a specific principal has endorsed an identity
 
+## 📊 Identity Event Logging System
+
+- 📝 Comprehensive event tracking for identity lifecycle
+- 🔍 Query specific events by type and identity
+- 🛡️ Authorized logging by validators or identity owners
+- ⏰ Timestamped event records with detailed information
+
+### For Validators/Identity Owners
+
+Log important events for an identity:
+```clarity
+(contract-call? .refugee-id log-identity-event <identity-id> "status-update" "Updated to verified")
+```
+
+### Query Functions
+
+- `get-identity-events`: Retrieve event details for specific identity and event type
+

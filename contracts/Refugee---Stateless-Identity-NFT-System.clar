@@ -135,7 +135,18 @@
          (nft-transfer? refugee-id id tx-sender recipient)))
 
 (define-public (endorse-identity (identity-id uint))
-     (let ((identity (nft-get-owner? refugee-id identity-id)))
-         (asserts! (is-some identity) err-invalid-id)
-         (asserts! (not (is-endorsed tx-sender identity-id)) err-already-endorsed)
-         (ok (map-set endorsements {endorser: tx-sender, identity-id: identity-id} true))))
+      (let ((identity (nft-get-owner? refugee-id identity-id)))
+          (asserts! (is-some identity) err-invalid-id)
+          (asserts! (not (is-endorsed tx-sender identity-id)) err-already-endorsed)
+          (ok (map-set endorsements {endorser: tx-sender, identity-id: identity-id} true))))
+
+(define-map identity-events {identity-id: uint, event-type: (string-ascii 20)} {timestamp: uint, details: (string-ascii 100)})
+
+(define-read-only (get-identity-events (identity-id uint) (event-type (string-ascii 20)))
+    (map-get? identity-events {identity-id: identity-id, event-type: event-type}))
+
+(define-public (log-identity-event (identity-id uint) (event-type (string-ascii 20)) (details (string-ascii 100)))
+    (begin
+        (asserts! (is-some (map-get? identity-details identity-id)) err-invalid-id)
+        (asserts! (or (is-validator tx-sender) (is-eq (some tx-sender) (nft-get-owner? refugee-id identity-id))) err-not-authorized)
+        (ok (map-set identity-events {identity-id: identity-id, event-type: event-type} {timestamp: burn-block-height, details: details}))))
