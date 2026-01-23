@@ -113,3 +113,21 @@ Log important events for an identity:
 
 - `get-identity-events`: Retrieve event details for specific identity and event type
 
+## 🔄 Bio-Hash Self-Update Feature
+
+- ✏️ Empower identity holders to update their bio-hash independently
+- 🔒 Secure updates restricted to valid, non-expired identities
+- 🚀 Streamlined user experience with reduced validator dependency
+
+### For Identity Holders
+
+Update your identity's bio-hash directly:
+
+```clarity
+(contract-call? .refugee-id update-bio-hash <id> "new-bio-hash-string")
+```
+
+### Query Functions
+
+- `get-identity`: Retrieve updated identity details including bio-hash
+

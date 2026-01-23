@@ -146,7 +146,23 @@
     (map-get? identity-events {identity-id: identity-id, event-type: event-type}))
 
 (define-public (log-identity-event (identity-id uint) (event-type (string-ascii 20)) (details (string-ascii 100)))
-    (begin
-        (asserts! (is-some (map-get? identity-details identity-id)) err-invalid-id)
-        (asserts! (or (is-validator tx-sender) (is-eq (some tx-sender) (nft-get-owner? refugee-id identity-id))) err-not-authorized)
-        (ok (map-set identity-events {identity-id: identity-id, event-type: event-type} {timestamp: burn-block-height, details: details}))))
+     (begin
+         (asserts! (is-some (map-get? identity-details identity-id)) err-invalid-id)
+         (asserts! (or (is-validator tx-sender) (is-eq (some tx-sender) (nft-get-owner? refugee-id identity-id))) err-not-authorized)
+         (ok (map-set identity-events {identity-id: identity-id, event-type: event-type} {timestamp: burn-block-height, details: details}))))
+
+(define-public (update-bio-hash
+     (id uint)
+     (new-bio-hash (string-ascii 64)))
+     (let ((identity (nft-get-owner? refugee-id id)))
+         (asserts! (is-some identity) err-invalid-id)
+         (asserts! (is-eq (some tx-sender) identity) err-not-authorized)
+         (asserts! (is-identity-valid id) err-identity-expired)
+         (let ((details (unwrap! (map-get? identity-details id) err-invalid-id)))
+             (ok (map-set identity-details id
+                 {name: (get name details),
+                  bio-hash: new-bio-hash,
+                  status: (get status details),
+                  created-at: (get created-at details),
+                  expires-at: (get expires-at details),
+                  issuer: (get issuer details)})))))
